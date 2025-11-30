@@ -11,6 +11,7 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Gallery from './pages/Gallery';
 import EventsManager from './pages/admin/EventsManager';
+import EventUploadManager from './pages/admin/EventUploadManager';
 
 const AdminDashboardPlaceholder = () => (
   <div>
@@ -60,7 +61,7 @@ const App: React.FC = () => {
         {/* Admin Routes - Wrapped in AdminLayout */}
         <Route path={RoutePaths.ADMIN_DASHBOARD} element={<AdminLayout><AdminDashboardPlaceholder /></AdminLayout>} />
         <Route path={RoutePaths.ADMIN_EVENTS} element={<AdminLayout><EventsManager /></AdminLayout>} />
-        <Route path={RoutePaths.ADMIN_EVENT_DETAIL} element={<AdminLayout><PlaceholderPage title="Event Upload Manager" /></AdminLayout>} />
+        <Route path={RoutePaths.ADMIN_EVENT_DETAIL} element={<AdminLayout><EventUploadManager /></AdminLayout>} />
         <Route path="/admin/settings" element={<AdminLayout><PlaceholderPage title="Agency Settings" /></AdminLayout>} />
         
         {/* Safety Redirect for old selfie links */}
