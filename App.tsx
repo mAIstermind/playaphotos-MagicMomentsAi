@@ -61,7 +61,10 @@ const App: React.FC = () => {
         {/* Admin Routes - Wrapped in AdminLayout */}
         <Route path={RoutePaths.ADMIN_DASHBOARD} element={<AdminLayout><AdminDashboardPlaceholder /></AdminLayout>} />
         <Route path={RoutePaths.ADMIN_EVENTS} element={<AdminLayout><EventsManager /></AdminLayout>} />
+        
+        {/* CRITICAL: Connect the Real Upload Manager */}
         <Route path={RoutePaths.ADMIN_EVENT_DETAIL} element={<AdminLayout><EventUploadManager /></AdminLayout>} />
+        
         <Route path="/admin/settings" element={<AdminLayout><PlaceholderPage title="Agency Settings" /></AdminLayout>} />
         
         {/* Safety Redirect for old selfie links */}

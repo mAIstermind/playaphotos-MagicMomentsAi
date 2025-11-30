@@ -1,245 +1,97 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { db, storage, auth } from '../../lib/firebase';
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  addDoc, 
-  query, 
-  where, 
-  onSnapshot, 
-  serverTimestamp, 
-  orderBy, 
-  deleteDoc 
-} from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { 
-  Upload, 
-  ArrowLeft, 
-  Image as ImageIcon, 
-  Trash2, 
-  Loader2, 
-  CheckCircle, 
-  AlertCircle 
-} from 'lucide-react';
-import { RoutePaths } from '../../types';
+import { db, storage, auth } from '../../lib/firebase';
+import { ArrowLeft, Upload, Loader, Image as ImageIcon } from 'lucide-react';
 
-interface UploadStatus {
-  fileName: string;
-  progress: number;
-  status: 'uploading' | 'success' | 'error';
-  url?: string;
-}
-
-const EventUploadManager: React.FC = () => {
-  const { eventId } = useParams<{ eventId: string }>();
-  const [eventName, setEventName] = useState('Loading Event...');
+const EventUploadManager = () => {
+  const { eventId } = useParams();
   const [photos, setPhotos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploadQueue, setUploadQueue] = useState<UploadStatus[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  // 1. Fetch Event Details
-  useEffect(() => {
-    const fetchEvent = async () => {
-      if (!eventId) return;
-      try {
-        const docRef = doc(db, 'events', eventId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setEventName(docSnap.data().name);
-        } else {
-          setEventName('Event Not Found');
-        }
-      } catch (error) {
-        console.error("Error fetching event:", error);
-      }
-    };
-    fetchEvent();
-  }, [eventId]);
-
-  // 2. Real-time Photos Listener
+  // Fetch Photos
   useEffect(() => {
     if (!eventId) return;
-
-    const q = query(
-      collection(db, 'photos'),
-      where('eventId', '==', eventId),
-      orderBy('createdAt', 'desc')
-    );
-
+    const q = query(collection(db, 'photos'), where('eventId', '==', eventId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedPhotos = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setPhotos(fetchedPhotos);
-      setLoading(false);
+      setPhotos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-
     return () => unsubscribe();
   }, [eventId]);
 
-  // 3. File Upload Logic
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || !eventId || !auth.currentUser) return;
-
-    const newUploads: UploadStatus[] = Array.from(files).map(file => ({
-      fileName: file.name,
-      progress: 0,
-      status: 'uploading'
-    }));
-
-    setUploadQueue(prev => [...newUploads, ...prev]);
-
-    // Process each file
-    Array.from(files).forEach(async (file) => {
+  // Handle Upload
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return;
+    setIsUploading(true);
+    const files = Array.from(e.target.files);
+    
+    let completed = 0;
+    for (const file of files) {
       try {
-        // Create Storage Ref: agency_uploads/{uid}/{eventId}/{filename}
-        const storageRef = ref(storage, `agency_uploads/${auth.currentUser?.uid}/${eventId}/${file.name}-${Date.now()}`);
-        
-        // Upload
-        const snapshot = await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
+        const path = `agency_uploads/${auth.currentUser?.uid}/${eventId}/${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
 
-        // Update Queue Status (Success)
-        setUploadQueue(prev => prev.map(item => 
-          item.fileName === file.name ? { ...item, status: 'success', url: downloadURL, progress: 100 } : item
-        ));
-
-        // Save to Firestore
         await addDoc(collection(db, 'photos'), {
-          eventId: eventId,
+          eventId,
           agencyId: auth.currentUser?.uid,
-          originalUrl: downloadURL,
-          watermarkedUrl: downloadURL, // Using original as placeholder for now
-          thumbnailUrl: downloadURL,
-          embedding: [], // Placeholder for AI
+          originalUrl: url,
+          watermarkedUrl: url, // Todo: Add watermark processing
+          status: 'active',
           createdAt: serverTimestamp(),
-          status: 'active'
+          embedding: [] 
         });
-
-      } catch (error) {
-        console.error("Upload failed for", file.name, error);
-        setUploadQueue(prev => prev.map(item => 
-          item.fileName === file.name ? { ...item, status: 'error', progress: 0 } : item
-        ));
+        completed++;
+        setUploadProgress((completed / files.length) * 100);
+      } catch (err) {
+        console.error(err);
       }
-    });
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleFiles(e.dataTransfer.files);
-  };
-
-  const deletePhoto = async (photoId: string) => {
-    if (window.confirm('Are you sure you want to delete this photo?')) {
-      await deleteDoc(doc(db, 'photos', photoId));
     }
+    setIsUploading(false);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center space-x-4 mb-8">
-        <Link to={RoutePaths.ADMIN_EVENTS} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
-          <ArrowLeft size={20} />
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-8">
+        <Link to="/admin/events" className="p-2 hover:bg-slate-200 rounded-full">
+          <ArrowLeft className="w-6 h-6" />
         </Link>
-        <div>
-           <h1 className="text-2xl font-bold text-slate-900">{eventName}</h1>
-           <p className="text-slate-500 text-sm">Upload and manage gallery photos</p>
-        </div>
+        <h1 className="text-2xl font-bold">Manage Photos</h1>
       </div>
 
-      {/* Upload Area */}
-      <div 
-        className={`
-          border-3 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer
-          ${isDragging ? 'border-brand-500 bg-brand-50' : 'border-slate-300 hover:border-brand-400 hover:bg-slate-50'}
-        `}
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={onDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          multiple 
-          accept="image/*" 
-          className="hidden" 
-          onChange={(e) => handleFiles(e.target.files)} 
-        />
-        
-        <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Upload size={32} />
-        </div>
-        <h3 className="text-lg font-semibold text-slate-900">Drag & Drop photos here</h3>
-        <p className="text-slate-500 mt-2">or click to browse from your computer</p>
-        <p className="text-xs text-slate-400 mt-4">Supports JPG, PNG (Max 10MB)</p>
-      </div>
+      <label className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer mb-8 transition-colors ${isUploading ? 'bg-indigo-50 border-indigo-300' : 'hover:bg-slate-50 border-slate-300'}`}>
+        <input type="file" multiple accept="image/*" onChange={handleUpload} className="hidden" disabled={isUploading} />
+        {isUploading ? (
+          <div className="flex flex-col items-center">
+             <Loader className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
+             <p className="text-indigo-600 font-bold">Uploading... {Math.round(uploadProgress)}%</p>
+          </div>
+        ) : (
+          <>
+            <Upload className="w-8 h-8 text-slate-400 mb-2" />
+            <p className="font-medium text-slate-700">Click to Upload Photos</p>
+            <p className="text-xs text-slate-400 mt-1">or drag and drop</p>
+          </>
+        )}
+      </label>
 
-      {/* Upload Queue (Visible only during activity) */}
-      {uploadQueue.length > 0 && uploadQueue.some(u => u.status !== 'success') && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-          <h4 className="font-semibold text-sm text-slate-700">Upload Status</h4>
-          {uploadQueue.filter(u => u.status !== 'success').map((item, idx) => (
-             <div key={idx} className="flex items-center justify-between text-sm">
-                <span className="truncate max-w-xs">{item.fileName}</span>
-                {item.status === 'uploading' && <Loader2 className="animate-spin w-4 h-4 text-brand-600" />}
-                {item.status === 'error' && <AlertCircle className="w-4 h-4 text-red-500" />}
-             </div>
-          ))}
-        </div>
+      {photos.length === 0 ? (
+          <div className="text-center py-10 bg-slate-50 rounded-lg">
+              <ImageIcon className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-slate-500">No photos uploaded yet</p>
+          </div>
+      ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {photos.map(photo => (
+              <div key={photo.id} className="aspect-square relative group bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                <img src={photo.originalUrl} className="w-full h-full object-cover" alt="" />
+              </div>
+            ))}
+          </div>
       )}
-
-      {/* Photo Grid */}
-      <div className="space-y-4">
-         <div className="flex items-center justify-between">
-            <h3 className="font-bold text-slate-800 text-lg">Gallery Photos ({photos.length})</h3>
-         </div>
-         
-         {loading ? (
-           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-             {[1,2,3,4,5].map(i => (
-               <div key={i} className="aspect-square bg-slate-100 rounded-lg animate-pulse"></div>
-             ))}
-           </div>
-         ) : photos.length === 0 ? (
-           <div className="text-center py-12 bg-slate-50 rounded-xl border border-slate-100">
-             <ImageIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-             <p className="text-slate-500">No photos uploaded yet.</p>
-           </div>
-         ) : (
-           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-             {photos.map((photo) => (
-               <div key={photo.id} className="group relative aspect-square bg-slate-100 rounded-lg overflow-hidden shadow-sm border border-slate-200">
-                 <img 
-                   src={photo.thumbnailUrl || photo.originalUrl} 
-                   alt="Gallery item" 
-                   className="w-full h-full object-cover"
-                   loading="lazy"
-                 />
-                 
-                 {/* Overlay Actions */}
-                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <button 
-                      onClick={() => deletePhoto(photo.id)}
-                      className="bg-white/90 text-red-600 p-2 rounded-full hover:bg-white hover:scale-110 transition-all shadow-sm"
-                      title="Delete Photo"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                 </div>
-               </div>
-             ))}
-           </div>
-         )}
-      </div>
     </div>
   );
 };
