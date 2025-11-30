@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, Camera, LayoutDashboard, Image } from 'lucide-react';
+import { Menu, X, Camera, Image } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { RoutePaths } from '../types';
 
@@ -35,16 +35,10 @@ export const Navbar: React.FC<NavbarProps> = ({ layoutType }) => {
 
     const getLinkClass = (path: string) => location.pathname === path ? activeLinkClass : linkClass;
 
+    // Admin Layout is now handled by AdminSidebar, so we don't need logic here
+    // But if passed 'admin' by mistake, we render nothing or just logout
     if (layoutType === 'admin') {
-      return (
-        <div className={baseClass}>
-          <Link to={RoutePaths.ADMIN_DASHBOARD} className={getLinkClass(RoutePaths.ADMIN_DASHBOARD)} onClick={closeMenu}>
-            <LayoutDashboard className="w-4 h-4" />
-            <span>Dashboard</span>
-          </Link>
-          <Link to={RoutePaths.HOME} className={linkClass} onClick={closeMenu}>Logout</Link>
-        </div>
-      );
+      return null; 
     }
 
     if (layoutType === 'app') {
@@ -69,7 +63,6 @@ export const Navbar: React.FC<NavbarProps> = ({ layoutType }) => {
         <Link to={RoutePaths.HOME} className={getLinkClass(RoutePaths.HOME)} onClick={closeMenu}>Home</Link>
         <Link to={RoutePaths.FEATURES} className={getLinkClass(RoutePaths.FEATURES)} onClick={closeMenu}>Features</Link>
         <Link to={RoutePaths.PRICING} className={getLinkClass(RoutePaths.PRICING)} onClick={closeMenu}>Pricing</Link>
-        {/* Agency Login Removed from main nav */}
       </div>
     );
   };
