@@ -4,14 +4,6 @@ import { collection, query, where, getDocs, addDoc, serverTimestamp, limit } fro
 import { db, auth } from '../../lib/firebase';
 import { Plus, Calendar, Image as ImageIcon, Loader } from 'lucide-react';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 const EventsManager = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

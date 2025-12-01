@@ -3,14 +3,6 @@ import { RoutePaths } from '../types';
 import { Link, useNavigate } from 'react-router-dom';
 import { Wand2, Camera, Eye, ArrowRight, ScanFace, Sparkles, Download, Search } from 'lucide-react';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const [eventQuery, setEventQuery] = useState('');

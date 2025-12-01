@@ -2,14 +2,6 @@ import React from 'react';
 import { CheckCircle, Download, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 const Success = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

@@ -3,14 +3,6 @@ import { X, Trash2, ShoppingBag, Lock, Loader2 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 export const CartDrawer: React.FC = () => {
   const { items, isOpen, toggleCart, removeFromCart, cartTotal, clearCart } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);

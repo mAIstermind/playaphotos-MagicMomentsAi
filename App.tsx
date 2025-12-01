@@ -16,14 +16,6 @@ import Success from './pages/Success';
 import EventsManager from './pages/admin/EventsManager';
 import EventUploadManager from './pages/admin/EventUploadManager';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 const AdminDashboardPlaceholder = () => (
   <div>
     <h2 className="text-2xl font-bold text-slate-800 mb-6">Agency Dashboard</h2>

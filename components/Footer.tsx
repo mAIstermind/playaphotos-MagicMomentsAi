@@ -2,14 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { RoutePaths } from '../types';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 export const Footer: React.FC = () => {
   const year = new Date().getFullYear();
 

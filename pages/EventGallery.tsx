@@ -5,15 +5,9 @@ import { db } from '../lib/firebase';
 import { useCart } from '../contexts/CartContext';
 import { CartDrawer } from '../components/CartDrawer';
 import { Camera, Search, ShoppingBag, Wand2, Download, Image as ImageIcon, X, Loader2, AlertCircle } from 'lucide-react';
-import * as faceapi from 'face-api.js';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
+// Dynamic import type placeholder
+type FaceApiLib = any;
 
 // --- Types ---
 interface PhotoData {
@@ -43,6 +37,9 @@ const EventGallery = () => {
   const [photos, setPhotos] = useState<PhotoData[]>([]);
   const [filteredPhotos, setFilteredPhotos] = useState<PhotoData[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Face API State
+  const [faceApi, setFaceApi] = useState<FaceApiLib | null>(null);
   const [faceApiLoaded, setFaceApiLoaded] = useState(false);
   
   // Search State
@@ -104,19 +101,32 @@ const EventGallery = () => {
     fetchEvent();
   }, [agencySlug, eventSlug, paramEventId]);
 
-  // --- 2. Load Face API Models ---
+  // --- 2. Dynamically Load Face API Models ---
   useEffect(() => {
     const loadModels = async () => {
       try {
-        const MODEL_URL = '/models'; // Must be in public/models
+        console.log("Dynamically importing face-api.js...");
+        // Dynamic import to prevent bundle crash
+        const loadedFaceApi = await import('face-api.js');
+        setFaceApi(loadedFaceApi);
+
+        // We use a relative path to the public/models directory
+        // You MUST have the weights in /public/models for this to work
+        const MODEL_URL = '/models'; 
+        
+        console.log("Loading FaceAPI weights from", MODEL_URL);
+        
         await Promise.all([
-          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+          loadedFaceApi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          loadedFaceApi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          loadedFaceApi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
         ]);
+        
+        console.log("FaceAPI models loaded successfully");
         setFaceApiLoaded(true);
       } catch (e) {
-        console.warn("Face API models not found. Face search disabled.", e);
+        console.warn("Face API models failed to load. Feature disabled.", e);
+        // App continues without face search
       }
     };
     loadModels();
@@ -127,20 +137,27 @@ const EventGallery = () => {
     setSearchStatus('camera');
     setSearchError(null);
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not supported");
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (err) {
-      setSearchError("Camera access denied.");
+      console.error("Camera start error:", err);
+      setSearchError("Camera access denied or unavailable.");
     }
   };
 
   const captureAndSearch = async () => {
-    if (!videoRef.current || !faceApiLoaded) return;
+    if (!videoRef.current || !faceApi || !faceApiLoaded) {
+        console.error("Cannot capture: API or Video not ready");
+        return;
+    }
     setSearchStatus('processing');
 
     try {
       // Detect face from video element
-      const detection = await faceapi.detectSingleFace(videoRef.current).withFaceLandmarks().withFaceDescriptor();
+      const detection = await faceApi.detectSingleFace(videoRef.current).withFaceLandmarks().withFaceDescriptor();
       
       if (!detection) {
         setSearchError("No face detected. Try again.");
@@ -149,26 +166,26 @@ const EventGallery = () => {
       }
 
       // Stop Camera
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(t => t.stop());
+      if (videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(t => t.stop());
+      }
 
       // Filter photos based on Euclidean distance
-      // Note: This requires photos in Firestore to have 'embedding' field populated
       const matched = photos.filter(p => {
-        if (!p.embedding || p.embedding.length === 0) return true; // Keep unidentified photos? Or hide?
-        // Simple Euclidean distance
-        const dist = faceapi.euclideanDistance(detection.descriptor, p.embedding as unknown as Float32Array);
+        if (!p.embedding || p.embedding.length === 0) return true; 
+        const dist = faceApi.euclideanDistance(detection.descriptor, p.embedding);
         return dist < 0.6; // Threshold
       });
 
-      setFilteredPhotos(matched.length > 0 ? matched : photos); // Fallback to all if none found
+      setFilteredPhotos(matched.length > 0 ? matched : photos); 
       setIsSearching(false);
       
       if (matched.length === 0) alert("No matches found. Showing all photos.");
       
     } catch (err) {
-      console.error(err);
-      setSearchError("Analysis failed.");
+      console.error("Search error:", err);
+      setSearchError("Analysis failed. Please try again.");
     } finally {
       setSearchStatus('idle');
     }
@@ -178,11 +195,25 @@ const EventGallery = () => {
     setFilteredPhotos(photos);
     setIsSearching(false);
     setSearchStatus('idle');
+    // Ensure camera is off
+    if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(t => t.stop());
+    }
   };
 
   // --- Render ---
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin w-10 h-10 text-brand-600" /></div>;
-  if (!event) return <div className="p-10 text-center">Event not found</div>;
+  
+  if (!event) return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+      <AlertCircle className="w-12 h-12 text-slate-300 mb-4" />
+      <h2 className="text-xl font-bold text-slate-700">Event Not Found</h2>
+      <p className="text-slate-500 mt-2 text-center max-w-md">
+        We couldn't find the event you're looking for. Please check the URL or contact the organizer.
+      </p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -237,27 +268,28 @@ const EventGallery = () => {
                    <h3 className="text-2xl font-bold mb-2">Find Your Face</h3>
                    <p className="text-slate-500 mb-8">We use secure, local AI to find matches. No photos are stored.</p>
                    <div className="space-y-3">
-                     <button onClick={startCamera} className="w-full bg-brand-600 text-white py-3 rounded-xl font-bold hover:bg-brand-700">Take Selfie</button>
-                     <button className="w-full border border-slate-300 text-slate-700 py-3 rounded-xl font-bold">Upload Photo</button>
+                     <button onClick={startCamera} className="w-full bg-brand-600 text-white py-3 rounded-xl font-bold hover:bg-brand-700 shadow-lg">Take Selfie</button>
+                     <button className="w-full border border-slate-300 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-50">Upload Photo</button>
                    </div>
-                   {!faceApiLoaded && <p className="text-xs text-red-400 mt-4">AI Models loading... please wait.</p>}
+                   {!faceApiLoaded && <p className="text-xs text-amber-500 mt-4 bg-amber-50 p-2 rounded">Note: AI Models loading... Search may be unavailable.</p>}
                 </div>
               )}
 
               {searchStatus === 'camera' && (
-                 <div className="relative bg-black aspect-[3/4]">
+                 <div className="relative bg-black aspect-[3/4] w-full">
                     <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-                    <div className="absolute bottom-6 left-0 right-0 flex justify-center">
-                       <button onClick={captureAndSearch} className="w-16 h-16 bg-white rounded-full border-4 border-slate-300 shadow-lg"></button>
+                    <div className="absolute bottom-6 left-0 right-0 flex justify-center z-20">
+                       <button onClick={captureAndSearch} className="w-16 h-16 bg-white rounded-full border-[6px] border-slate-200 shadow-xl hover:scale-105 transition-transform"></button>
                     </div>
-                    {searchError && <div className="absolute top-4 left-4 right-12 bg-red-500 text-white p-2 rounded text-sm">{searchError}</div>}
+                    {searchError && <div className="absolute top-4 left-4 right-12 bg-red-500 text-white p-2 rounded text-sm shadow-lg">{searchError}</div>}
                  </div>
               )}
 
               {searchStatus === 'processing' && (
                   <div className="p-12 text-center">
                      <Loader2 className="w-12 h-12 text-brand-600 animate-spin mx-auto mb-4" />
-                     <p className="font-bold">Scanning Gallery...</p>
+                     <p className="font-bold text-slate-800">Scanning Gallery...</p>
+                     <p className="text-sm text-slate-500 mt-2">Analyzing facial features locally...</p>
                   </div>
               )}
            </div>
@@ -268,11 +300,11 @@ const EventGallery = () => {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredPhotos.map((photo) => (
-            <div key={photo.id} className="relative group bg-slate-200 rounded-lg overflow-hidden aspect-[2/3]" onContextMenu={(e) => e.preventDefault()}>
+            <div key={photo.id} className="relative group bg-slate-200 rounded-lg overflow-hidden aspect-[2/3] shadow-sm hover:shadow-md transition-shadow" onContextMenu={(e) => e.preventDefault()}>
                <img src={photo.watermarkedUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                
                {/* Heavy Watermark Overlay */}
-               <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-30">
+               <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-30 mix-blend-overlay">
                   <span className="text-4xl font-black text-white -rotate-45 select-none">PREVIEW</span>
                </div>
                
@@ -281,7 +313,7 @@ const EventGallery = () => {
 
                {/* Hover Actions */}
                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-20 flex flex-col justify-end p-4">
-                  <div className="space-y-2 translate-y-4 group-hover:translate-y-0 transition-transform">
+                  <div className="space-y-2 translate-y-4 group-hover:translate-y-0 transition-transform duration-200">
                       <button 
                         onClick={() => addToCart({
                           photoId: photo.id,
@@ -290,7 +322,7 @@ const EventGallery = () => {
                           price: event.pricing.socialPrice,
                           label: 'Social Download'
                         })}
-                        className="w-full bg-white/10 backdrop-blur text-white text-sm py-2 rounded-lg hover:bg-white/20 flex items-center justify-center gap-2"
+                        className="w-full bg-white/10 backdrop-blur text-white text-sm py-2.5 rounded-lg hover:bg-white/20 flex items-center justify-center gap-2 border border-white/10"
                       >
                          <Download size={14} /> Social (${event.pricing.socialPrice})
                       </button>
@@ -302,7 +334,7 @@ const EventGallery = () => {
                             price: event.pricing.creditPrice,
                             label: 'AI Remix Credit'
                          })}
-                         className="w-full bg-brand-600 text-white text-sm py-2 rounded-lg hover:bg-brand-500 flex items-center justify-center gap-2 shadow-lg"
+                         className="w-full bg-brand-600 text-white text-sm py-2.5 rounded-lg hover:bg-brand-500 flex items-center justify-center gap-2 shadow-lg font-medium"
                       >
                          <Wand2 size={14} /> Remix (${event.pricing.creditPrice})
                       </button>
@@ -313,9 +345,10 @@ const EventGallery = () => {
         </div>
         
         {filteredPhotos.length === 0 && (
-           <div className="text-center py-20 text-slate-400">
+           <div className="text-center py-20 text-slate-400 bg-white rounded-xl border border-slate-100 border-dashed">
               <ImageIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
-              <p>No photos found.</p>
+              <p className="font-medium text-slate-500">No photos found.</p>
+              <p className="text-sm mt-1">Try clearing your filters or check back later.</p>
            </div>
         )}
       </div>

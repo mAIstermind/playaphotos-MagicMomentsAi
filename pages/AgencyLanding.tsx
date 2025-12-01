@@ -3,14 +3,6 @@ import { RoutePaths } from '../types';
 import { Link } from 'react-router-dom';
 import { Camera, CheckCircle, BarChart3, Lock } from 'lucide-react';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 const AgencyLanding: React.FC = () => {
   return (
     <div className="flex flex-col">

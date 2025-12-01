@@ -5,14 +5,6 @@ import { Footer } from './Footer';
 import { RoutePaths } from '../types';
 import { LayoutDashboard, Images, Settings, LogOut, Menu, X, Camera } from 'lucide-react';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 interface LayoutProps {
   children: React.ReactNode;
 }

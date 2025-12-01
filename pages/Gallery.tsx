@@ -1,14 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Search, X, ShieldCheck, AlertCircle, Loader2, User, ChevronRight } from 'lucide-react';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 const MOCK_PHOTOS = [
   "https://images.unsplash.com/photo-1519671482538-30715c3276dd?auto=format&fit=crop&q=80&w=800",
   "https://images.unsplash.com/photo-1514525253440-b393452e8d26?auto=format&fit=crop&q=80&w=800",

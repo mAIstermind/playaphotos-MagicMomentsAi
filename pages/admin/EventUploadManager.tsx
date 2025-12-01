@@ -5,14 +5,6 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../lib/firebase';
 import { ArrowLeft, Upload, Trash2, CheckSquare, Square } from 'lucide-react';
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
 const EventUploadManager = () => {
   const { eventId } = useParams();
   const [photos, setPhotos] = useState<any[]>([]);
