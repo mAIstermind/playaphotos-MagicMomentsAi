@@ -5,6 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { RoutePaths } from '../types';
 import { Loader2, AlertCircle } from 'lucide-react';
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

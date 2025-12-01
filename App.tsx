@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { RoutePaths } from './types';
 import { PublicLayout, AppLayout, AdminLayout } from './components/Layouts';
+import { CartProvider } from './contexts/CartContext';
 
 // Pages
 import Landing from './pages/Landing';
@@ -9,9 +10,19 @@ import AgencyLanding from './pages/AgencyLanding';
 import Login from './pages/Login';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
-import Gallery from './pages/Gallery';
+import Gallery from './pages/Gallery'; // Old one, keeping for legacy references
+import EventGallery from './pages/EventGallery'; // NEW Full Featured Gallery
+import Success from './pages/Success';
 import EventsManager from './pages/admin/EventsManager';
 import EventUploadManager from './pages/admin/EventUploadManager';
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
 
 const AdminDashboardPlaceholder = () => (
   <div>
@@ -42,38 +53,44 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path={RoutePaths.HOME} element={<PublicLayout><Landing /></PublicLayout>} />
-        <Route path={RoutePaths.AGENCY_LANDING} element={<PublicLayout><AgencyLanding /></PublicLayout>} />
-        <Route path={RoutePaths.LOGIN} element={<PublicLayout><Login /></PublicLayout>} />
-        <Route path={RoutePaths.TERMS} element={<PublicLayout><Terms /></PublicLayout>} />
-        <Route path={RoutePaths.PRIVACY} element={<PublicLayout><Privacy /></PublicLayout>} />
-        
-        {/* Placeholders for new links */}
-        <Route path={RoutePaths.PRICING} element={<PublicLayout><PlaceholderPage title="Pricing Plans" /></PublicLayout>} />
-        <Route path={RoutePaths.FEATURES} element={<PublicLayout><PlaceholderPage title="All Features" /></PublicLayout>} />
+    <CartProvider>
+      <HashRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path={RoutePaths.HOME} element={<PublicLayout><Landing /></PublicLayout>} />
+          <Route path={RoutePaths.AGENCY_LANDING} element={<PublicLayout><AgencyLanding /></PublicLayout>} />
+          <Route path={RoutePaths.LOGIN} element={<PublicLayout><Login /></PublicLayout>} />
+          <Route path={RoutePaths.TERMS} element={<PublicLayout><Terms /></PublicLayout>} />
+          <Route path={RoutePaths.PRIVACY} element={<PublicLayout><Privacy /></PublicLayout>} />
+          
+          {/* Placeholders for new links */}
+          <Route path={RoutePaths.PRICING} element={<PublicLayout><PlaceholderPage title="Pricing Plans" /></PublicLayout>} />
+          <Route path={RoutePaths.FEATURES} element={<PublicLayout><PlaceholderPage title="All Features" /></PublicLayout>} />
 
-        {/* App/Event Routes */}
-        <Route path={RoutePaths.APP_GALLERY} element={<AppLayout><Gallery /></AppLayout>} />
+          {/* ATTENDEE EXPERIENCE ROUTES */}
+          {/* Direct ID access */}
+          <Route path={RoutePaths.APP_GALLERY} element={<AppLayout><EventGallery /></AppLayout>} />
+          {/* Slug access (e.g. /acme-photo/smith-wedding) */}
+          <Route path={RoutePaths.EVENT_SLUG} element={<AppLayout><EventGallery /></AppLayout>} />
+          {/* Checkout Success */}
+          <Route path={RoutePaths.CHECKOUT_SUCCESS} element={<PublicLayout><Success /></PublicLayout>} />
 
-        {/* Admin Routes - Wrapped in AdminLayout */}
-        <Route path={RoutePaths.ADMIN_DASHBOARD} element={<AdminLayout><AdminDashboardPlaceholder /></AdminLayout>} />
-        <Route path={RoutePaths.ADMIN_EVENTS} element={<AdminLayout><EventsManager /></AdminLayout>} />
-        
-        {/* CRITICAL: Connect the Real Upload Manager */}
-        <Route path={RoutePaths.ADMIN_EVENT_DETAIL} element={<AdminLayout><EventUploadManager /></AdminLayout>} />
-        
-        <Route path="/admin/settings" element={<AdminLayout><PlaceholderPage title="Agency Settings" /></AdminLayout>} />
-        
-        {/* Safety Redirect for old selfie links */}
-        <Route path="/selfie" element={<Navigate to={RoutePaths.APP_GALLERY} replace />} />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to={RoutePaths.HOME} replace />} />
-      </Routes>
-    </HashRouter>
+          {/* Admin Routes - Wrapped in AdminLayout */}
+          <Route path={RoutePaths.ADMIN_DASHBOARD} element={<AdminLayout><AdminDashboardPlaceholder /></AdminLayout>} />
+          <Route path={RoutePaths.ADMIN_EVENTS} element={<AdminLayout><EventsManager /></AdminLayout>} />
+          
+          {/* CRITICAL: Connect the Real Upload Manager */}
+          <Route path={RoutePaths.ADMIN_EVENT_DETAIL} element={<AdminLayout><EventUploadManager /></AdminLayout>} />
+          
+          <Route path="/admin/settings" element={<AdminLayout><PlaceholderPage title="Agency Settings" /></AdminLayout>} />
+          
+          {/* Safety Redirects */}
+          <Route path="/selfie" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={RoutePaths.HOME} replace />} />
+        </Routes>
+      </HashRouter>
+    </CartProvider>
   );
 };
 

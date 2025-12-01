@@ -3,6 +3,14 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, FolderOpen, Settings, LogOut, Menu, X, Camera } from 'lucide-react';
 import { RoutePaths } from '../types';
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
 export const AdminSidebar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();

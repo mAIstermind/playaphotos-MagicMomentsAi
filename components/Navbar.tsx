@@ -3,6 +3,14 @@ import { Menu, X, Camera, Image } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { RoutePaths } from '../types';
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
 interface NavbarProps {
   layoutType: 'public' | 'app' | 'admin';
 }

@@ -1,6 +1,14 @@
 import React from 'react';
 import { ShieldCheck } from 'lucide-react';
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
 const Privacy: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 py-12 sm:px-6 lg:px-8">

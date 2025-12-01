@@ -15,7 +15,10 @@ export const RoutePaths = {
   FEATURES: '/features',
   
   // App / Attendee
-  APP_GALLERY: '/gallery/:eventId',
+  // New slug-based route: domain.com/agency-name/event-name
+  EVENT_SLUG: '/:agencySlug/:eventSlug',
+  APP_GALLERY: '/gallery/:eventId', // Fallback ID based route
+  CHECKOUT_SUCCESS: '/checkout/success',
   
   // Admin / Agency
   ADMIN_DASHBOARD: '/admin/dashboard',
@@ -43,18 +46,22 @@ export interface Photo {
   price?: number;
 }
 
+export type ProductType = 'social' | 'print' | 'original' | 'remix';
+
 export interface CartItem {
+  id: string; // Unique cart item ID
   photoId: string;
   thumbnailUrl: string;
-  type: 'digital' | 'print' | 'remix';
+  type: ProductType;
   price: number;
-  quantity: number;
+  label: string; // e.g., "Social Download"
 }
 
 export interface EventPricing {
   creditPrice: number;
   socialPrice: number;
   printPrice: number;
+  originalPrice: number;
 }
 
 export interface Event {
@@ -66,4 +73,5 @@ export interface Event {
   agencyId: string;
   status: 'active' | 'archived' | 'draft';
   photoCount: number;
+  pricing?: EventPricing;
 }

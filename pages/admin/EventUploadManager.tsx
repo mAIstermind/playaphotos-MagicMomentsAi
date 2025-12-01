@@ -1,117 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../lib/firebase';
-import { ArrowLeft, Upload, Loader, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, Upload, Trash2, CheckSquare, Square } from 'lucide-react';
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
 
 const EventUploadManager = () => {
   const { eventId } = useParams();
   const [photos, setPhotos] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
 
-  // Fetch Photos
   useEffect(() => {
     if (!eventId) return;
     const q = query(collection(db, 'photos'), where('eventId', '==', eventId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPhotos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    const unsubscribe = onSnapshot(q, (snapshot) => setPhotos(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))));
     return () => unsubscribe();
   }, [eventId]);
 
-  // Handle Upload
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
-    
-    // Safety check for auth
-    if (!auth.currentUser) {
-      alert("You must be logged in to upload photos.");
-      return;
-    }
-
     setIsUploading(true);
     const files = Array.from(e.target.files);
-    
-    let completed = 0;
-    for (const file of files) {
+    for (const fileObj of files) {
+      const file = fileObj as File;
       try {
-        const path = `agency_uploads/${auth.currentUser.uid}/${eventId}/${Date.now()}_${file.name}`;
+        const path = `agency_uploads/${auth.currentUser?.uid}/${eventId}/${Date.now()}_${file.name}`;
         const storageRef = ref(storage, path);
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
-
-        await addDoc(collection(db, 'photos'), {
-          eventId,
-          agencyId: auth.currentUser.uid,
-          originalUrl: url,
-          watermarkedUrl: url, // Placeholder: In a real app, a Cloud Function would generate this
-          status: 'active',
-          createdAt: serverTimestamp(),
-          embedding: [] 
-        });
-        completed++;
-        setUploadProgress((completed / files.length) * 100);
-      } catch (err) {
-        console.error("Upload error:", err);
-      }
+        await addDoc(collection(db, 'photos'), { eventId, agencyId: auth.currentUser?.uid, originalUrl: url, watermarkedUrl: url, status: 'active', createdAt: serverTimestamp(), embedding: [] });
+      } catch (err) { console.error(err); }
     }
     setIsUploading(false);
-    setUploadProgress(0);
+  };
+
+  const deleteSelected = async () => {
+    if (!confirm(`Delete ${selectedPhotos.size} photos?`)) return;
+    for (const id of selectedPhotos) await deleteDoc(doc(db, 'photos', id));
+    setSelectedPhotos(new Set());
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSet = new Set(selectedPhotos);
+    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    setSelectedPhotos(newSet);
   };
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-4 mb-8">
-        <Link to="/admin/events" className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-          <ArrowLeft className="w-6 h-6 text-slate-600" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Manage Photos</h1>
-          <p className="text-slate-500 text-sm">Upload high-resolution images for this event.</p>
-        </div>
+      <div className="flex justify-between mb-8">
+        <div className="flex gap-4"><Link to="/admin/events" className="p-2 hover:bg-slate-200 rounded-full"><ArrowLeft /></Link><h1 className="text-2xl font-bold">Manage Photos</h1></div>
+        {selectedPhotos.size > 0 && <button onClick={deleteSelected} className="bg-red-600 text-white px-3 py-2 rounded flex gap-2"><Trash2 className="w-4 h-4" /> Delete ({selectedPhotos.size})</button>}
       </div>
-
-      <label className={`
-        border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer mb-8 transition-colors
-        ${isUploading ? 'bg-indigo-50 border-indigo-300' : 'hover:bg-slate-50 border-slate-300 hover:border-brand-400'}
-      `}>
+      <label className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center cursor-pointer mb-8 ${isUploading ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
         <input type="file" multiple accept="image/*" onChange={handleUpload} className="hidden" disabled={isUploading} />
-        {isUploading ? (
-          <div className="flex flex-col items-center">
-             <Loader className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
-             <p className="text-indigo-600 font-bold">Uploading... {Math.round(uploadProgress)}%</p>
-          </div>
-        ) : (
-          <>
-            <div className="bg-indigo-50 p-3 rounded-full mb-3">
-              <Upload className="w-8 h-8 text-indigo-600" />
-            </div>
-            <p className="font-medium text-slate-700 text-lg">Click to Upload Photos</p>
-            <p className="text-sm text-slate-400 mt-1">JPG, PNG supported</p>
-          </>
-        )}
+        {isUploading ? <p className="text-indigo-600 font-bold">Uploading...</p> : <div className="text-center"><Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" /><p>Upload Photos</p></div>}
       </label>
-
-      {photos.length === 0 ? (
-          <div className="text-center py-16 bg-slate-50 rounded-xl border border-slate-100">
-              <ImageIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500 font-medium">No photos uploaded yet</p>
-              <p className="text-slate-400 text-sm">Upload photos to see them here.</p>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {photos.map(p => (
+          <div key={p.id} onClick={() => toggleSelect(p.id)} className={`aspect-square relative group bg-slate-100 rounded-lg overflow-hidden cursor-pointer border-2 ${selectedPhotos.has(p.id) ? 'border-indigo-600' : 'border-transparent'}`}>
+            <img src={p.originalUrl} className="w-full h-full object-cover" />
+            <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center ${selectedPhotos.has(p.id) ? 'bg-indigo-600 border-indigo-600' : 'bg-black/30 border-white'}`}>
+              {selectedPhotos.has(p.id) && <CheckSquare className="w-4 h-4 text-white" />}
+            </div>
           </div>
-      ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {photos.map(photo => (
-              <div key={photo.id} className="aspect-square relative group bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                <img src={photo.originalUrl} className="w-full h-full object-cover" alt="" loading="lazy" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              </div>
-            ))}
-          </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 };
-
 export default EventUploadManager;
