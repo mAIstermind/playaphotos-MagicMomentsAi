@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CartItem, EventPricing } from '../types';
+import { CartItem } from '../types';
 
 interface CartContextType {
   items: CartItem[];
@@ -19,7 +19,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isOpen, setIsOpen] = useState(false);
   const [cartTotal, setCartTotal] = useState(0);
 
-  // Load cart from local storage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem('mm_cart');
     if (savedCart) {
@@ -31,7 +30,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Save to local storage on change
   useEffect(() => {
     localStorage.setItem('mm_cart', JSON.stringify(items));
     const total = items.reduce((sum, item) => sum + item.price, 0);

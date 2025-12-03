@@ -1,9 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { RoutePaths } from '../types';
+import { Download } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const year = new Date().getFullYear();
+
+  const handleInstallClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Dispatch event to InstallPwa component
+    window.dispatchEvent(new Event('pwa-install-trigger'));
+  };
 
   return (
     <footer className="bg-slate-50 border-t border-slate-200 mt-auto">
@@ -14,7 +21,15 @@ export const Footer: React.FC = () => {
             © {year} Playa Photos. All rights reserved.
           </div>
 
-          <div className="flex space-x-6 text-sm font-medium text-slate-500">
+          <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-slate-500">
+            <button 
+              onClick={handleInstallClick} 
+              className="flex items-center gap-1.5 hover:text-brand-600 transition-colors"
+            >
+              <Download size={16} />
+              <span>Install App</span>
+            </button>
+            
             <Link to={RoutePaths.PRIVACY} className="hover:text-brand-600 transition-colors">
               Privacy Policy
             </Link>

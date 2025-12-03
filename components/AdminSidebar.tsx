@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, Settings, LogOut, Menu, X, Camera } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Settings, LogOut, Menu, X, Camera, BookOpen } from 'lucide-react';
 import { RoutePaths } from '../types';
 
 export const AdminSidebar: React.FC = () => {
@@ -60,6 +60,8 @@ export const AdminSidebar: React.FC = () => {
           <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
             <NavItem path={RoutePaths.ADMIN_DASHBOARD} icon={LayoutDashboard} label="Dashboard" />
             <NavItem path={RoutePaths.ADMIN_EVENTS} icon={FolderOpen} label="Galleries" />
+            {/* NEW LINK ADDED HERE */}
+            <NavItem path="/admin/documentation" icon={BookOpen} label="Manual" />
             
             {/* Placeholder for future settings */}
             <div className="pt-4 mt-4 border-t border-slate-100">
